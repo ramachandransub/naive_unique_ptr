@@ -40,24 +40,27 @@ namespace naive_smart_pointers {
         is_deleter_function_candidate<T>::value;
 
     template <typename T, typename D>
-    using deleter_base_t = std::conditional_t<is_deleter_function_candidate_v<D>,
-        deleter_pointer_wrapper<T>, D>;
+    using deleter_base_t = std::conditional_t<
+        is_deleter_function_candidate_v<D>,
+            deleter_pointer_wrapper<T>, D>;
 
     template <typename T, typename D>
     class unique_ptr_base : deleter_base_t<T, D> {
     protected:
         using deleter_type = deleter_base_t<T, D>;
         T* p{nullptr};
-        void swap(T& other) noexcept {
+        void swap(unique_ptr_base& other) noexcept {
             using std::swap;
-            swap(static_cast<deleter_type&>(this), static_cast<deleter_type&>(other));
+            swap(static_cast<deleter_type&>(*this), 
+                static_cast<deleter_type&>(other));
             swap(p, other.p);
         }
 
         bool operator==(const unique_ptr_base& other) {
             return p == other.p;
         }
-        // take note: operator!=(const unique_ptr_base&) inferred from operator==() since c++20
+        // take note: operator!=(const unique_ptr_base&) 
+        // inferred from operator==() since c++20
         // operator!= -> !(operator==)
 
     public:
@@ -72,24 +75,29 @@ namespace naive_smart_pointers {
         }
 
         unique_ptr_base(const unique_ptr_base&) = delete;
-        unique_ptr_base& operator=(const unique_ptr_base&) = delete;
+        unique_ptr_base& operator=(const unique_ptr_base&) = 
+            delete;
 
         unique_ptr_base(unique_ptr_base&& other) noexcept :
-            deleter_type{std::move(static_cast<deleter_type&>(other))},
+            deleter_type{std::move(static_cast<deleter_type&>(
+                other))},
             p{std::exchange(other.p, nullptr)} {}
 
-        unique_ptr_base& operator=(unique_ptr_base&& other) noexcept {
+        unique_ptr_base& operator=(unique_ptr_base&& other) 
+            noexcept {
             unique_ptr_base{std::move(other)}.swap(*this);
             return *this;
         }
 
         bool empty() const noexcept {
-            return p;
+            return !p;
         }
 
-        // take note: this is a conversion function. the type in the name is the return
+        // take note: this is a conversion function. the 
+        // type in the name is the return
         // type, thus writing the return type is redundant
-        // same goes to operator X(); operator int(); operator std::string()
+        // same goes to operator X(); operator int(); 
+        // operator std::string()
         explicit operator bool() const noexcept {
             return !empty();
         }
@@ -107,8 +115,8 @@ namespace naive_smart_pointers {
     class unique_ptr : public unique_ptr_base<T, D> {
         public:
         // take note: exposing the parent's ctor functions
-        // without this, we will not be getting the compiler generated
-        // free functions
+        // without this, we will not be getting the compiler 
+        // generated special functions
         using unique_ptr_base<T, D>::unique_ptr_base;
 
         void swap(unique_ptr& other) noexcept {
@@ -120,8 +128,8 @@ namespace naive_smart_pointers {
             return this->p == other.p;
         }
 
-        // take note: removing this to allow compiler generated move assignment.
-        // generated automatically 
+        // take note: removing this to allow compiler generated 
+        // move assignment generated automatically 
         // unique_ptr& operator=(unique_ptr&& other) noexcept {
             // unique_ptr_base<T, D>::operator=(std::move(other));
             // return this;
@@ -145,8 +153,9 @@ namespace naive_smart_pointers {
     };
 
     // unique_ptr specialization for arrays
-    // couldnt assign default deleter D = default_deleter<T>> like above 
-    // seems like partial specialization shouldnt have default template arg
+    // couldnt assign default deleter D = default_deleter<T>> 
+    // like above seems like partial specialization shouldnt  
+    // have default template arg
     template <typename T, typename D>
     class unique_ptr<T[], D> : public unique_ptr_base<T, D> {
     public:
